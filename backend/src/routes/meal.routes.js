@@ -88,6 +88,55 @@ async function getMealData(req, dateKey) {
   return { date: dateKey, timezone: "Asia/Dhaka", members: memberMeals, requests: visibleRequests };
 }
 
+// Monthly day-by-day meal ledger for moderators and members.
+router.get("/summary/:month", asyncHandler(async (req, res) => {
+  if (!/^\\d{4}-\\d{2}$/.test(req.params.month)) {
+    return res.status(400).json({ success: false, message: "Use YYYY-MM month format" });
+  }
+  const [year, monthNumber] = req.params.month.split("-").map(Number);
+  if (monthNumber < 1 || monthNumber > 12) {
+    return res.status(400).json({ success: false, message: "Enter a valid month" });
+  }
+  const daysInMonth = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
+  const start = dateFromKey(`${req.params.month}-01`);
+  const end = dateFromKey(`${req.params.month}-${String(daysInMonth).padStart(2, "0")}`);
+  const userFilter = req.user.role === "Manager"
+    ? { messId: req.user.messId, isActive: true, _id: { $ne: req.user._id } }
+    : { _id: req.user._id, messId: req.user.messId, isActive: true };
+  const [users, preferences, records] = await Promise.all([
+    User.find(userFilter).select("_id name email").sort({ name: 1 }).lean(),
+    MealPreference.find({ messId: req.user.messId, userId: { $in: req.user.role === "Manager" ? (await User.find(userFilter).distinct("_id")) : [req.user._id] } }).lean(),
+    Meal.find({ messId: req.user.messId, date: { $gte: start, $lte: end }, ...(req.user.role === "Manager" ? {} : { userId: req.user._id }) }).lean(),
+  ]);
+  const preferenceByUser = new Map(preferences.map((item) => [item.userId.toString(), item]));
+  const recordByKey = new Map(records.map((item) => [`${item.date.toISOString().slice(0, 10)}:${item.userId.toString()}`, item]));
+  const days = [];
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const dateKey = `${req.params.month}-${String(day).padStart(2, "0")}`;
+    const date = dateFromKey(dateKey);
+    const members = users.map((user) => {
+      const key = user._id.toString();
+      const record = recordByKey.get(`${dateKey}:${key}`);
+      const preference = preferenceByUser.get(key);
+      const breakfast = record ? record.breakfast : Boolean(preference && preference.breakfast);
+      const lunch = record ? record.lunch : Boolean(preference && preference.lunch);
+      const dinner = record ? record.dinner : Boolean(preference && preference.dinner);
+      return { user: { id: user._id, name: user.name, email: user.email }, breakfast, lunch, dinner, total: Number(breakfast) + Number(lunch) + Number(dinner) };
+    });
+    days.push({
+      date: dateKey,
+      members,
+      totals: {
+        breakfast: members.filter((item) => item.breakfast).length,
+        lunch: members.filter((item) => item.lunch).length,
+        dinner: members.filter((item) => item.dinner).length,
+        meals: members.reduce((sum, item) => sum + item.total, 0),
+      },
+    });
+  }
+  res.json({ success: true, month: req.params.month, days });
+}));
+
 router.get("/today", asyncHandler(async (req, res) => {
   const { dateKey, time } = getLocalParts();
   const data = await getMealData(req, dateKey);
