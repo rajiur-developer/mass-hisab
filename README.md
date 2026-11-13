@@ -4,7 +4,7 @@ Bachelor Mess Management System built with Next.js, Express.js, MongoDB and Boot
 
 ## Repository layout
 
-- `frontend/` — Next.js App Router application (planned)
+- `frontend/` — Next.js App Router + TypeScript + Bootstrap 5 application
 - `backend/` — Express REST API
 - MongoDB with Mongoose models
 
@@ -61,4 +61,4 @@ Bachelor Mess Management System built with Next.js, Express.js, MongoDB and Boot
 
 ## Development status
 
-Backend foundation is in progress. Authentication, authorization, validation, calculation services, API resources, tests and the Next.js frontend are upcoming.
+Frontend screens are scaffolded with responsive layouts and demo interactions. Backend foundation is in progress; authentication, API integration, validation, calculation services and automated tests are upcoming.
