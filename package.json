@@ -1,0 +1,11 @@
+{
+  "name": "mass-hisab",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Bachelor mess management system",
+  "scripts": {
+    "dev:backend": "npm --prefix backend run dev",
+    "start:backend": "npm --prefix backend start",
+    "install:backend": "npm --prefix backend install"
+  }
+}
