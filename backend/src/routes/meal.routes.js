@@ -130,7 +130,7 @@ router.put("/preferences", asyncHandler(async (req, res) => {
 router.patch("/preferences/:userId", requireRole("Manager"), asyncHandler(async (req, res) => {
   const { error, value } = preferencesSchema.validate(req.body);
   if (error) return res.status(400).json({ success: false, message: error.details[0].message });
-  const target = await User.findOne({ _id: req.params.userId, messId: req.user.messId, role: "Member", isActive: true }).select("_id");
+  const target = await User.findOne({ _id: req.params.userId, messId: req.user.messId, isActive: true }).select("_id");
   if (!target) return res.status(404).json({ success: false, message: "Member not found" });
   const preference = await MealPreference.findOneAndUpdate(
     { messId: req.user.messId, userId: target._id },
@@ -185,7 +185,7 @@ router.patch("/:userId/date/:date", requireRole("Manager"), asyncHandler(async (
   if (!validDateKey(req.params.date)) return res.status(400).json({ success: false, message: "Use a valid date in YYYY-MM-DD format" });
   const { error, value } = requestSchema.validate(req.body);
   if (error) return res.status(400).json({ success: false, message: error.details[0].message });
-  const target = await User.findOne({ _id: req.params.userId, messId: req.user.messId, role: "Member", isActive: true }).select("_id");
+  const target = await User.findOne({ _id: req.params.userId, messId: req.user.messId, isActive: true }).select("_id");
   if (!target) return res.status(404).json({ success: false, message: "Member not found" });
   const date = dateFromKey(req.params.date);
   const record = await saveDateMeal({
@@ -199,7 +199,7 @@ router.patch("/:userId/date/:date", requireRole("Manager"), asyncHandler(async (
 router.patch("/:userId", requireRole("Manager"), asyncHandler(async (req, res) => {
   const { error, value } = requestSchema.validate(req.body);
   if (error) return res.status(400).json({ success: false, message: error.details[0].message });
-  const target = await User.findOne({ _id: req.params.userId, messId: req.user.messId, role: "Member", isActive: true }).select("_id");
+  const target = await User.findOne({ _id: req.params.userId, messId: req.user.messId, isActive: true }).select("_id");
   if (!target) return res.status(404).json({ success: false, message: "Member not found" });
   const { dateKey } = getLocalParts();
   const date = dateFromKey(dateKey);

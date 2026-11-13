@@ -12,7 +12,7 @@ const router = express.Router();
 router.use(authenticate, requireRole("Manager"));
 
 router.get("/", asyncHandler(async (req, res) => {
-  const members = await User.find({ messId: req.user.messId, role: "Member", isActive: true })
+  const members = await User.find({ messId: req.user.messId, isActive: true })
     .select("_id name email phone joinedAt")
     .sort({ name: 1 });
   res.json({ success: true, members });
@@ -55,7 +55,7 @@ router.patch("/:memberId", asyncHandler(async (req, res) => {
   if (error) return res.status(400).json({ success: false, message: error.details[0].message });
 
   const member = await User.findOneAndUpdate(
-    { _id: req.params.memberId, messId: req.user.messId, role: "Member" },
+    { _id: req.params.memberId, messId: req.user.messId },
     value,
     { new: true, runValidators: true }
   ).select("_id name email phone isActive");
@@ -65,7 +65,7 @@ router.patch("/:memberId", asyncHandler(async (req, res) => {
 
 router.delete("/:memberId", asyncHandler(async (req, res) => {
   const member = await User.findOneAndUpdate(
-    { _id: req.params.memberId, messId: req.user.messId, role: "Member", isActive: true },
+    { _id: req.params.memberId, messId: req.user.messId, isActive: true },
     { isActive: false },
     { new: true }
   ).select("_id name email");
