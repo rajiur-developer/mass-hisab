@@ -1,6 +1,8 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const Mess = require("../models/Mess");
+const ManagerHistory = require("../models/ManagerHistory");
+const { getLocalParts, dateFromKey } = require("../utils/messTime");
 
 async function authenticate(req, res, next) {
   try {
@@ -8,7 +10,6 @@ async function authenticate(req, res, next) {
     const header = req.headers.authorization || "";
     const bearerToken = header.startsWith("Bearer ") ? header.slice(7) : null;
     const token = cookieToken || bearerToken;
-
     if (!token) return res.status(401).json({ success: false, message: "Authentication required" });
     if (!process.env.JWT_ACCESS_SECRET) throw new Error("JWT_ACCESS_SECRET is not configured");
 
@@ -20,6 +21,14 @@ async function authenticate(req, res, next) {
     const mess = await Mess.findOne({ _id: user.messId, isActive: true }).select("_id name mealLockTime timezone");
     if (!mess) return res.status(403).json({ success: false, message: "Mess is unavailable" });
 
+    const { dateKey } = getLocalParts();
+    const today = dateFromKey(dateKey);
+    const assignment = await ManagerHistory.findOne({
+      messId: user.messId, startDate: { $lte: today },
+      $or: [{ endDate: null }, { endDate: { $gte: today } }],
+    }).sort({ startDate: -1 }).select("managerId");
+    if (assignment) user.role = assignment.managerId.toString() === user._id.toString() ? "Manager" : "Member";
+
     req.user = user;
     req.mess = mess;
     return next();
@@ -30,5 +39,4 @@ async function authenticate(req, res, next) {
     return next(error);
   }
 }
-
 module.exports = authenticate;

@@ -4,6 +4,7 @@ const jwt = require("jsonwebtoken");
 const Joi = require("joi");
 const Mess = require("../models/Mess");
 const User = require("../models/User");
+const ManagerHistory = require("../models/ManagerHistory");
 const authenticate = require("../middleware/auth");
 const asyncHandler = require("../utils/asyncHandler");
 
@@ -63,6 +64,8 @@ router.post("/register", asyncHandler(async (req, res) => {
     createdUser = user;
     mess.currentManager = user._id;
     await mess.save();
+    const { dateFromKey, getLocalParts } = require("../utils/messTime");
+    await ManagerHistory.create({ messId: mess._id, managerId: user._id, startDate: dateFromKey(getLocalParts().dateKey) });
     issueSession(res, user);
     return res.status(201).json({ success: true, user: publicUser(user), mess: { id: mess._id, name: mess.name } });
   } catch (error) {
