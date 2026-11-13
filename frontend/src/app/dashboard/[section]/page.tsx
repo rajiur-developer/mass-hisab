@@ -1,28 +1,134 @@
 "use client";
-import {useParams} from "next/navigation";
-import {useMemo,useState} from "react";
-type Row={cells:string[];status?:string};
-type Config={title:string;subtitle:string;action:string;columns:string[];rows:Row[];stats:string[][];fields:string[]};
-const configs:Record<string,Config>={
- meals:{title:"Daily meals",subtitle:"Record and review meal counts for every member.",action:"Add meal entry",columns:["Member","Breakfast","Lunch","Dinner","Guest meals","Total"],rows:[{cells:["Abir Rahman","1","1","1","0","3"]},{cells:["Sakib Khan","0","1","1","1","3"]},{cells:["Tanvir Noor","1","0","1","0","2"]},{cells:["Mahin Hasan","1","1","1","0","3"]}],stats:[["Meals today","21","Across 8 members"],["Guest meals","3","Recorded today"],["Meal lock","10:00 PM","Daily cutoff"]],fields:["Member name","Date","Breakfast count","Lunch count","Dinner count","Guest meals"]},
- members:{title:"Members",subtitle:"Manage the people who share this mess and its monthly costs.",action:"Add member",columns:["Member","Phone","Joined","Role","Status"],rows:[{cells:["Abir Rahman","01712-000001","Jan 2026","Manager","Active"]},{cells:["Sakib Khan","01712-000002","Feb 2026","Member","Active"]},{cells:["Tanvir Noor","01712-000003","Mar 2026","Member","Active"]},{cells:["Mahin Hasan","01712-000004","Apr 2026","Member","Active"]}],stats:[["Total members","8","In this mess"],["Active members","8","All members active"],["Current manager","Abir Rahman","Until Nov 30"]],fields:["Full name","Email address","Phone number","Join date","Role"]},
- bazar:{title:"Bazar & shopping",subtitle:"Keep every market purchase transparent and easy to review.",action:"Add bazar entry",columns:["Item / Details","Purchased by","Date","Payment method","Amount"],rows:[{cells:["Vegetables & groceries","Sakib Khan","Nov 14, 2026","Cash","৳ 850"]},{cells:["Rice · 10 kg","Abir Rahman","Nov 12, 2026","bKash","৳ 720"]},{cells:["Chicken & fish","Tanvir Noor","Nov 10, 2026","Cash","৳ 1,240"]}],stats:[["Bazar this month","৳ 18,450","32 entries"],["Awaiting review","2 entries","Manager approval"],["Average per day","৳ 615","This month"]],fields:["Item / description","Purchased by","Purchase date","Amount (৳)","Payment method"]},
- deposits:{title:"Deposits",subtitle:"Track member contributions and verify incoming payments.",action:"Record deposit",columns:["Member","Date","Method","Transaction ID","Amount"],rows:[{cells:["Tanvir Noor","Nov 14, 2026","bKash","BK9X31A","৳ 2,000"],status:"Pending"},{cells:["Sakib Khan","Nov 12, 2026","Cash","—","৳ 1,500"],status:"Approved"},{cells:["Mahin Hasan","Nov 10, 2026","Nagad","NG4P81B","৳ 2,500"],status:"Approved"}],stats:[["Total deposits","৳ 16,000","This month"],["Pending approval","৳ 3,000","2 requests"],["Approved","৳ 13,000","Verified total"]],fields:["Member","Amount (৳)","Payment date","Payment method","Transaction ID"]},
- expenses:{title:"Shared expenses",subtitle:"Record utilities, rent and other shared mess costs.",action:"Add expense",columns:["Expense","Category","Date","Split method","Amount"],rows:[{cells:["Monthly Wi-Fi bill","Internet","Nov 05, 2026","Equal","৳ 1,200"]},{cells:["Water bill","Utilities","Nov 03, 2026","Equal","৳ 650"]},{cells:["Cleaning supplies","Household","Nov 02, 2026","Custom","৳ 480"]}],stats:[["Shared expenses","৳ 4,830","This month"],["Categories","5","Active categories"],["Members sharing","8","Current month"]],fields:["Expense title","Category","Date","Amount (৳)","Split method"]},
- reports:{title:"Monthly reports",subtitle:"Understand the monthly meal rate, spending and each member’s balance.",action:"Export report",columns:["Member","Meals","Meal cost","Deposits","Other share","Net balance"],rows:[{cells:["Abir Rahman","72","৳ 4,932","৳ 5,000","৳ 240","+৳ 68"]},{cells:["Sakib Khan","64","৳ 4,384","৳ 3,000","৳ 240","-৳ 1,624"]},{cells:["Tanvir Noor","58","৳ 3,973","৳ 4,000","৳ 240","-৳ 213"]}],stats:[["Meal rate","৳ 68.50","Per meal"],["Total bazar","৳ 18,450","Approved entries"],["Other expenses","৳ 4,830","Shared costs"]],fields:["Member","Meals","Meal cost","Deposits","Other share","Net balance"]},
- manager:{title:"Manager rotation",subtitle:"Plan the monthly manager handover and keep responsibilities clear.",action:"Schedule manager",columns:["Manager","Start date","End date"],rows:[{cells:["Abir Rahman","Nov 01, 2026","Nov 30, 2026"],status:"Current"},{cells:["Sakib Khan","Dec 01, 2026","Dec 31, 2026"],status:"Upcoming"}],stats:[["Current manager","Abir Rahman","November"],["Next manager","Sakib Khan","Starts Dec 1"],["Rotation cycle","Monthly","One manager at a time"]],fields:["Manager","Start date","End date"]},
- settings:{title:"Mess settings",subtitle:"Manage your mess profile, meal schedule and month preferences.",action:"Save changes",columns:["Setting","Current value","Description"],rows:[{cells:["Mess name","Green View Mess","Workspace display name"]},{cells:["Meal lock time","10:00 PM","Daily meal entry cutoff"]},{cells:["Timezone","Asia/Dhaka","Used for daily and monthly reports"]},{cells:["Currency","BDT (৳)","All amounts stored in paisa"]}],stats:[["Mess members","8","Active"],["Timezone","Asia/Dhaka","Local time"],["Meal lock","10:00 PM","Every day"]],fields:["Setting","Current value","Description"]}
+
+import { useEffect, useMemo, useState } from "react";
+import { useParams } from "next/navigation";
+import { readDemoSession, type DemoSession } from "@/lib/demo-auth";
+
+type MealName = "Breakfast" | "Lunch" | "Dinner";
+type MemberRecord = { id: string; name: string; email: string; phone: string; breakfast: boolean; lunch: boolean; dinner: boolean };
+type MealRequest = { id: string; member: string; meal: MealName; requested: boolean; status: "Pending" | "Approved" | "Rejected" };
+const MEAL_KEY = "mass-hisab-meal-demo";
+const MEMBERS_KEY = "mass-hisab-members-demo";
+const DEADLINE_KEY = "mass-hisab-request-deadline";
+
+const initialMembers: MemberRecord[] = [
+  { id: "m1", name: "Abir Rahman", email: "abir@example.com", phone: "01712-000001", breakfast: true, lunch: true, dinner: true },
+  { id: "m2", name: "Sakib Khan", email: "member@masshisab.demo", phone: "01712-000002", breakfast: true, lunch: true, dinner: false },
+  { id: "m3", name: "Tanvir Noor", email: "tanvir@example.com", phone: "01712-000003", breakfast: true, lunch: false, dinner: true },
+  { id: "m4", name: "Mahin Hasan", email: "mahin@example.com", phone: "01712-000004", breakfast: true, lunch: true, dinner: true }
+];
+
+const configs: Record<string, { title: string; subtitle: string; columns: string[]; rows: string[][] }> = {
+  bazar: { title: "Bazar & shopping", subtitle: "Mess-wide market purchases.", columns: ["Item", "Purchased by", "Date", "Amount"], rows: [["Vegetables & groceries", "Sakib Khan", "Nov 14, 2026", "৳ 850"], ["Rice · 10 kg", "Abir Rahman", "Nov 12, 2026", "৳ 720"]] },
+  deposits: { title: "Deposits", subtitle: "Your contributions and verified payments.", columns: ["Member", "Date", "Method", "Amount"], rows: [["Sakib Khan", "Nov 12, 2026", "Cash", "৳ 1,500"], ["Sakib Khan", "Nov 02, 2026", "bKash", "৳ 1,500"]] },
+  expenses: { title: "Shared expenses", subtitle: "Utilities and shared mess costs.", columns: ["Expense", "Category", "Date", "Amount"], rows: [["Monthly Wi-Fi bill", "Internet", "Nov 05, 2026", "৳ 1,200"], ["Water bill", "Utilities", "Nov 03, 2026", "৳ 650"]] },
+  reports: { title: "Monthly report", subtitle: "Your meal count, meal cost, deposits and balance.", columns: ["Member", "Meals", "Meal cost", "Deposits", "Balance"], rows: [["Sakib Khan", "64", "৳ 4,384", "৳ 3,000", "-৳ 1,624"]] },
+  manager: { title: "Manager rotation", subtitle: "Monthly moderator handover.", columns: ["Manager", "Start date", "End date"], rows: [["Abir Rahman", "Nov 01, 2026", "Nov 30, 2026"]] },
+  settings: { title: "Mess settings", subtitle: "Manage mess preferences.", columns: ["Setting", "Current value"], rows: [["Mess name", "Green View Mess"], ["Timezone", "Asia/Dhaka"]] }
 };
-export default function SectionPage(){
- const params=useParams<{section:string}>();const section=params.section;const config=useMemo(()=>configs[section]||configs.meals,[section]);
- const[show,setShow]=useState(false);const[notice,setNotice]=useState("");const[search,setSearch]=useState("");const[form,setForm]=useState<Record<string,string>>({});const[extraRows,setExtraRows]=useState<Row[]>([]);
- const rows=[...config.rows,...extraRows].filter(r=>r.cells.join(" ").toLowerCase().includes(search.toLowerCase()));
- function submit(e:React.FormEvent){e.preventDefault();const cells=config.fields.map(field=>form[field]||"—");setExtraRows([...extraRows,{cells,status:section==="deposits"?"Pending":undefined}]);setShow(false);setNotice("Added to this demo session. API integration will persist this record later.");setForm({});}
- return <><div className="page-heading"><div><h1 className="page-title">{config.title}</h1><p className="page-subtitle">{config.subtitle}</p></div><button className="btn-primary-custom" onClick={()=>section==="reports"?setNotice("Report export will be enabled with the reporting API."):setShow(true)}><i className={"bi "+(section==="reports"?"bi-download":"bi-plus-lg")+" me-2"}/>{config.action}</button></div>
- {notice&&<div className="alert alert-success border-0 rounded-3 py-2 small" role="status">{notice}<button className="btn-close float-end" onClick={()=>setNotice("")}/></div>}
- <div className="row g-3 mb-4">{config.stats.map((s,i)=><div className="col-12 col-md-4" key={s[0]}><div className="card-clean stat-card"><div className="stat-top">{s[0]}<span className="stat-icon"><i className={["bi bi-activity","bi bi-wallet2","bi bi-calendar-check"][i]}/></span></div><div className="stat-value">{s[1]}</div><div className="stat-note">{s[2]}</div></div></div>)}</div>
- {show&&<div className="card-clean section-card mb-4"><div className="d-flex justify-content-between mb-3"><div><h2 className="section-title">Add new record</h2><div className="section-subtitle">Fill in the details below.</div></div><button className="btn-close" onClick={()=>setShow(false)} aria-label="Close"/></div><form onSubmit={submit}><div className="row g-3">{config.fields.map(field=><div className="col-12 col-md-6" key={field}><label className="form-label">{field}</label><input required className="form-control" type={field.toLowerCase().includes("date")?"date":"text"} placeholder={"Enter "+field.toLowerCase()} value={form[field]||""} onChange={e=>setForm({...form,[field]:e.target.value})}/></div>)}</div><div className="d-flex justify-content-end gap-2 mt-4"><button type="button" className="btn btn-light border" onClick={()=>setShow(false)}>Cancel</button><button type="submit" className="btn-primary-custom">Save entry</button></div></form></div>}
- <div className="card-clean section-card"><div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3"><div><h2 className="section-title">{section==="meals"?"Today’s meal register":section==="reports"?"Member-wise monthly statement":section==="manager"?"Manager schedule":"Recent records"}</h2><div className="section-subtitle">{rows.length} records shown · demo data</div></div><div className="d-flex gap-2"><div className="position-relative"><i className="bi bi-search position-absolute top-50 translate-middle-y ms-3 text-secondary"/><input className="form-control ps-5" style={{width:210}} placeholder="Search records..." value={search} onChange={e=>setSearch(e.target.value)}/></div><button className="btn btn-light border" onClick={()=>setSearch("")}><i className="bi bi-arrow-counterclockwise"/></button></div></div>
- <div className="table-wrap"><table className="table"><thead><tr>{config.columns.map(c=><th key={c}>{c}</th>)}{config.rows.some(r=>r.status)&&<th>Status</th>}</tr></thead><tbody>{rows.map((r,i)=><tr key={i}>{r.cells.map((c,j)=><td key={j}>{j===0?<strong>{c}</strong>:c}</td>)}{config.rows.some(x=>x.status)&&<td><span className={"badge-soft "+(r.status==="Pending"?"badge-warn":"")}>{r.status||"—"}</span></td>}</tr>)}</tbody></table>{rows.length===0&&<div className="empty-state"><i className="bi bi-search fs-3 d-block mb-2"/><strong>No matching records</strong><div className="small mt-1">Try a different search term.</div></div>}</div></div>
- <div className="d-flex align-items-center gap-2 text-secondary mt-3" style={{fontSize:11}}><i className="bi bi-info-circle"/><span>Sample data is shown for UI preview. Records will be loaded from the backend API when integration is complete.</span></div></>;
+
+export default function SectionPage() {
+  const params = useParams<{ section: string }>();
+  const section = params.section;
+  const config = useMemo(() => configs[section] || configs.reports, [section]);
+  const [session, setSession] = useState<DemoSession | null>(null);
+  const [members, setMembers] = useState<MemberRecord[]>(initialMembers);
+  const [requests, setRequests] = useState<MealRequest[]>([]);
+  const [deadline, setDeadline] = useState("20:00");
+  const [now, setNow] = useState("");
+  const [notice, setNotice] = useState("");
+  const [newName, setNewName] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [newPhone, setNewPhone] = useState("");
+
+  useEffect(() => {
+    setSession(readDemoSession());
+    const savedMembers = sessionStorage.getItem(MEMBERS_KEY);
+    const savedMeals = sessionStorage.getItem(MEAL_KEY);
+    const savedDeadline = sessionStorage.getItem(DEADLINE_KEY);
+    if (savedMembers) setMembers(JSON.parse(savedMembers));
+    if (savedMeals) setRequests(JSON.parse(savedMeals));
+    if (savedDeadline) setDeadline(savedDeadline);
+    const updateClock = () => setNow(new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Dhaka" }).format(new Date()));
+    updateClock();
+    const timer = window.setInterval(updateClock, 30000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const isManager = session?.role === "Manager";
+  const currentMember = members.find(m => m.email === session?.email) || members[1];
+  const isBeforeDeadline = !now || now < deadline;
+  const meals: { key: "breakfast" | "lunch" | "dinner"; label: MealName; icon: string }[] = [
+    { key: "breakfast", label: "Breakfast", icon: "bi-sunrise" },
+    { key: "lunch", label: "Lunch", icon: "bi-sun" },
+    { key: "dinner", label: "Dinner", icon: "bi-moon-stars" }
+  ];
+
+  function saveMembers(next: MemberRecord[]) {
+    setMembers(next);
+    sessionStorage.setItem(MEMBERS_KEY, JSON.stringify(next));
+  }
+  function saveRequests(next: MealRequest[]) {
+    setRequests(next);
+    sessionStorage.setItem(MEAL_KEY, JSON.stringify(next));
+  }
+  function saveDeadline(value: string) {
+    setDeadline(value);
+    sessionStorage.setItem(DEADLINE_KEY, value);
+    setNotice("All members' request deadline has been updated.");
+  }
+  function sendRequest(meal: MealName, requested: boolean) {
+    if (!isBeforeDeadline) return;
+    const existing = requests.find(r => r.member === currentMember.name && r.meal === meal && r.status === "Pending");
+    if (existing) {
+      setNotice("You already have a pending request for this meal.");
+      return;
+    }
+    saveRequests([...requests, { id: Date.now().toString(), member: currentMember.name, meal, requested, status: "Pending" }]);
+    setNotice(meal + " " + (requested ? "ON" : "OFF") + " request sent to the moderator.");
+  }
+  function decideRequest(id: string, status: "Approved" | "Rejected") {
+    const request = requests.find(r => r.id === id);
+    if (!request) return;
+    saveRequests(requests.map(r => r.id === id ? { ...r, status } : r));
+    if (status === "Approved") {
+      const key = request.meal === "Breakfast" ? "breakfast" : request.meal === "Lunch" ? "lunch" : "dinner";
+      saveMembers(members.map(m => m.name === request.member ? { ...m, [key]: request.requested } : m));
+    }
+    setNotice("Request " + status.toLowerCase() + ".");
+  }
+  function toggleMeal(memberId: string, key: "breakfast" | "lunch" | "dinner") {
+    saveMembers(members.map(m => m.id === memberId ? { ...m, [key]: !m[key] } : m));
+  }
+  function addMember(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newName.trim() || !newEmail.trim()) return;
+    saveMembers([...members, { id: Date.now().toString(), name: newName.trim(), email: newEmail.trim(), phone: newPhone.trim(), breakfast: false, lunch: false, dinner: false }]);
+    setNewName(""); setNewEmail(""); setNewPhone("");
+    setNotice("Member added to this demo session.");
+  }
+  function deleteMember(id: string) {
+    const target = members.find(m => m.id === id);
+    if (!target || target.email === "manager@masshisab.demo") return;
+    saveMembers(members.filter(m => m.id !== id));
+    setNotice("Member removed from this demo session.");
+  }
+
+  if (section === "meals") return <>
+    <div className="page-heading"><div><h1 className="page-title">{isManager ? "Daily meal control" : "My meal requests"}</h1><p className="page-subtitle">{isManager ? "Manage breakfast, lunch and dinner for every member." : "Choose ON or OFF for each meal before the common deadline."}</p></div></div>
+    {notice && <div className="alert alert-info py-2 small">{notice}<button className="btn-close float-end" onClick={() => setNotice("")} /></div>}
+    <div className="card-clean section-card mb-4">
+      <div className="d-flex flex-wrap justify-content-between align-items-center gap-3"><div><h2 className="section-title">Daily request deadline</h2><p className="section-subtitle mb-0">{isManager ? "Set one cutoff time for all members and all three meals." : "All three meal requests close at this moderator-set time."}</p></div>
+        {isManager ? <div className="d-flex align-items-center gap-2"><input aria-label="Request deadline" type="time" className="form-control" value={deadline} onChange={e => setDeadline(e.target.value)} /><button className="btn-primary-custom" onClick={() => saveDeadline(deadline)}>Save time</button></div> : <div className="text-end"><div className="fw-bold fs-5">{deadline}</div><span className={"badge-soft " + (isBeforeDeadline ? "" : "badge-warn")}>{isBeforeDeadline ? "Requests open" : "Requests closed"}</span></div>}
+      </div>
+    </div>
+    {isManager ? <div className="card-clean section-card mb-4"><h2 className="section-title mb-3">All members · today</h2><div className="table-wrap"><table className="table"><thead><tr><th>Member</th>{meals.map(m => <th key={m.key}>{m.label}</th>)}</tr></thead><tbody>{members.map(member => <tr key={member.id}><td><strong>{member.name}</strong></td>{meals.map(meal => <td key={meal.key}><button className={"btn btn-sm " + (member[meal.key] ? "btn-success" : "btn-outline-secondary")} onClick={() => toggleMeal(member.id, meal.key)}>{member[meal.key] ? "ON" : "OFF"}</button></td>)}</tr>)}</tbody></table></div><p className="small text-secondary mb-0">Moderator can directly change any member's meal status.</p></div> : <div className="row g-3 mb-4">{meals.map(meal => <div className="col-12 col-md-4" key={meal.key}><div className="card-clean stat-card h-100"><div className="d-flex align-items-center gap-2 mb-3"><span className="stat-icon"><i className={"bi " + meal.icon} /></span><strong>{meal.label}</strong></div><div className="stat-value">{currentMember[meal.key] ? "ON" : "OFF"}</div><div className="stat-note mb-3">Current approved status</div><div className="d-flex gap-2"><button disabled={!isBeforeDeadline} onClick={() => sendRequest(meal.label, true)} className="btn btn-success flex-fill">Request ON</button><button disabled={!isBeforeDeadline} onClick={() => sendRequest(meal.label, false)} className="btn btn-outline-secondary flex-fill">Request OFF</button></div></div></div>)}</div>}
+    <div className="card-clean section-card"><h2 className="section-title mb-3">{isManager ? "Member requests" : "My request history"}</h2><div className="table-wrap"><table className="table"><thead><tr>{isManager && <th>Member</th>}<th>Meal</th><th>Request</th><th>Status</th>{isManager && <th>Action</th>}</tr></thead><tbody>{requests.filter(r => isManager || r.member === currentMember.name).map(r => <tr key={r.id}>{isManager && <td>{r.member}</td>}<td>{r.meal}</td><td>{r.requested ? "ON" : "OFF"}</td><td><span className={"badge-soft " + (r.status === "Pending" ? "badge-warn" : "")}>{r.status}</span></td>{isManager && <td>{r.status === "Pending" ? <div className="d-flex gap-2"><button className="btn btn-sm btn-success" onClick={() => decideRequest(r.id, "Approved")}>Approve</button><button className="btn btn-sm btn-outline-danger" onClick={() => decideRequest(r.id, "Rejected")}>Reject</button></div> : "—"}</td>}</tr>)}</tbody></table>{requests.filter(r => isManager || r.member === currentMember.name).length === 0 && <div className="empty-state">No meal requests yet.</div>}</div></div>
+  </>;
+
+  if (section === "members") return <><div className="page-heading"><div><h1 className="page-title">Members</h1><p className="page-subtitle">Add, review and remove members from this mess.</p></div></div>{notice && <div className="alert alert-info py-2 small">{notice}</div>}<div className="card-clean section-card mb-4"><h2 className="section-title mb-3">Add a member</h2><form onSubmit={addMember}><div className="row g-2"><div className="col-md-4"><input required className="form-control" placeholder="Full name" value={newName} onChange={e => setNewName(e.target.value)} /></div><div className="col-md-4"><input required type="email" className="form-control" placeholder="Email address" value={newEmail} onChange={e => setNewEmail(e.target.value)} /></div><div className="col-md-3"><input className="form-control" placeholder="Phone (optional)" value={newPhone} onChange={e => setNewPhone(e.target.value)} /></div><div className="col-md-1"><button className="btn-primary-custom w-100" type="submit">Add</button></div></div></form></div><div className="card-clean section-card"><h2 className="section-title mb-3">All members ({members.length})</h2><div className="table-wrap"><table className="table"><thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Meals today</th><th>Action</th></tr></thead><tbody>{members.map(m => <tr key={m.id}><td><strong>{m.name}</strong></td><td>{m.email}</td><td>{m.phone || "—"}</td><td>{[m.breakfast, m.lunch, m.dinner].filter(Boolean).length}/3</td><td><button disabled={m.email === "manager@masshisab.demo"} className="btn btn-sm btn-outline-danger" onClick={() => deleteMember(m.id)}>Delete</button></td></tr>)}</tbody></table></div></div></>;
+
+  const baseRows = config.rows;
+  const visibleRows = !isManager ? baseRows.filter(row => row[0] === currentMember.name) : baseRows;
+  return <><div className="page-heading"><div><h1 className="page-title">{isManager ? config.title : "My " + config.title.toLowerCase()}</h1><p className="page-subtitle">{isManager ? config.subtitle : "Only your own account information is shown here."}</p></div></div><div className="card-clean section-card"><h2 className="section-title mb-3">{isManager ? "All records" : "My records"}</h2><div className="table-wrap"><table className="table"><thead><tr>{config.columns.map(c => <th key={c}>{c}</th>)}</tr></thead><tbody>{visibleRows.map((row, i) => <tr key={i}>{row.map((cell, j) => <td key={j}>{j === 0 ? <strong>{cell}</strong> : cell}</td>)}</tr>)}</tbody></table>{visibleRows.length === 0 && <div className="empty-state">No records found for your account.</div>}</div></div><p className="small text-secondary mt-3">Demo data only. Changes are kept in this browser session; backend persistence will be added later.</p></>;
 }
