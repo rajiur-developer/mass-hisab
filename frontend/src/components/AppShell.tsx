@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { clearDemoSession, readDemoSession, type DemoSession } from "@/lib/demo-auth";
 import { apiRequest } from "@/lib/api";
@@ -17,7 +17,6 @@ const memberGroups = [
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [session, setSession] = useState<DemoSession | null>(null);
 
@@ -33,7 +32,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       try { await apiRequest("/api/auth/logout", { method: "POST" }); } catch { /* Clear the local session even if the API is offline. */ }
     }
     clearDemoSession();
-    router.push("/login");
+    window.location.replace("/login");
   }
 
   return <div className="app-shell">
