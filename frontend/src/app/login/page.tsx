@@ -12,6 +12,7 @@ export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [messId, setMessId] = useState("");
   const [show, setShow] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -25,7 +26,7 @@ export default function LoginPage() {
     try {
       const result = await apiRequest<LoginResult>("/api/auth/login", {
         method: "POST",
-        body: JSON.stringify({ email: normalizedEmail, password }),
+        body: JSON.stringify({ email: normalizedEmail, password, ...(messId.trim() ? { messId: messId.trim() } : {}) }),
       });
       saveDemoSession({ id: result.user.id, messId: result.user.messId, role: result.user.role, name: result.user.name, email: result.user.email, authMode: "api" });
       router.push("/dashboard");
@@ -68,6 +69,7 @@ export default function LoginPage() {
           <div className="mb-4"><div className="text-uppercase fw-bold mb-2" style={{ fontSize: 10, letterSpacing: ".14em", color: "#176b52" }}>WELCOME BACK</div><h2>Sign in to your mess</h2><p className="text-secondary">Use your mess account credentials.</p></div>
           <form onSubmit={submit}>
             <div className="mb-3"><label className="form-label">Email address</label><input required type="email" className="form-control" placeholder="you@example.com" value={email} onChange={e => { setEmail(e.target.value); setError(""); }} /></div>
+            <div className="mb-3"><label className="form-label">Mess ID (optional)</label><input className="form-control" placeholder="Required only if your email is used in multiple messes" value={messId} onChange={e => { setMessId(e.target.value); setError(""); }} /></div>
             <div className="mb-2"><label className="form-label">Password</label><div className="position-relative"><input required type={show ? "text" : "password"} className="form-control pe-5" placeholder="Enter your password" value={password} onChange={e => { setPassword(e.target.value); setError(""); }} /><button type="button" onClick={() => setShow(!show)} className="btn position-absolute top-50 end-0 translate-middle-y text-secondary"><i className={"bi " + (show ? "bi-eye-slash" : "bi-eye")} /></button></div></div>
             {error && <div className="alert alert-danger py-2 small mt-3" role="alert">{error}</div>}
             <button disabled={loading} className="btn-primary-custom w-100 py-3 mt-4" type="submit">{loading ? "Signing in…" : "Sign in"} <i className="bi bi-arrow-right ms-2" /></button>
