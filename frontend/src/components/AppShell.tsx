@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { clearDemoSession, readDemoSession, type DemoSession } from "@/lib/demo-auth";
+import { apiRequest } from "@/lib/api";
 
 const managerGroups = [
   { label: "Workspace", items: [["/dashboard", "Overview", "bi-grid-1x2"], ["/dashboard/meals", "Daily meals", "bi-calendar2-check"], ["/dashboard/members", "Members", "bi-people"], ["/dashboard/bazar", "Bazar & shopping", "bi-basket2"]] },
@@ -27,7 +28,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const isManager = session?.role === "Manager";
   const groups = isManager ? managerGroups : memberGroups;
 
-  function logout() {
+  async function logout() {
+    if (session?.authMode === "api") {
+      try { await apiRequest("/api/auth/logout", { method: "POST" }); } catch { /* Clear the local session even if the API is offline. */ }
+    }
     clearDemoSession();
     router.push("/login");
   }

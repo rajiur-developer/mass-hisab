@@ -1,11 +1,13 @@
 "use client";
 
 export type DemoRole = "Manager" | "Member";
-
 export type DemoSession = {
   role: DemoRole;
   name: string;
   email: string;
+  id?: string;
+  messId?: string;
+  authMode?: "api" | "demo";
 };
 
 const SESSION_KEY = "mass-hisab-demo-session";

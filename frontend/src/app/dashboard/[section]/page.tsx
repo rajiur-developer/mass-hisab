@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { readDemoSession, type DemoSession } from "@/lib/demo-auth";
+import MealControl from "@/components/MealControl";
+import MembersControl from "@/components/MembersControl";
 
 type MealName = "Breakfast" | "Lunch" | "Dinner";
 type MemberRecord = { id: string; name: string; email: string; phone: string; breakfast: boolean; lunch: boolean; dinner: boolean };
@@ -58,6 +60,9 @@ export default function SectionPage() {
     const timer = window.setInterval(updateClock, 30000);
     return () => window.clearInterval(timer);
   }, []);
+
+  if (section === "meals") return <MealControl />;
+  if (section === "members") return <MembersControl />;
 
   const isManager = session?.role === "Manager";
   const currentMember = members.find(m => m.email === session?.email) || members[1];

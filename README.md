@@ -8,57 +8,63 @@ Bachelor Mess Management System built with Next.js, Express.js, MongoDB and Boot
 - `backend/` — Express REST API
 - MongoDB with Mongoose models
 
-## Current backend foundation
-
-- MongoDB connection with startup failure handling
-- Express security and request middleware
-- Health endpoint at `GET /api/health`
-- Initial schemas: Mess, User, Meal, Bazar, Deposit, Expense, MonthlySummary and ManagerHistory
-- Integer-paisa money storage for financial accuracy
-- Tenant-scoped indexes using `messId`
-
 ## Requirements
 
 - Node.js 20+
-- MongoDB 6+ (use a replica set for multi-document transactions)
+- MongoDB 6+
 
 ## Getting started
 
-1. Copy the environment template:
-
-   ```bash
-   cp .env.example .env
-   ```
-
-2. Set `MONGO_URI` and a strong `JWT_ACCESS_SECRET` in `.env`.
-
-3. Install backend dependencies:
+1. Copy `.env.example` to `.env`.
+2. Set `MONGO_URI` and a strong unique `JWT_ACCESS_SECRET`.
+3. Install dependencies:
 
    ```bash
    npm run install:backend
+   npm run install:frontend
    ```
 
-4. Start the API:
+4. Create `frontend/.env.local` containing:
+
+   ```env
+   NEXT_PUBLIC_API_URL=http://localhost:5000
+   ```
+
+5. Start MongoDB and run the API:
 
    ```bash
    npm run dev:backend
    ```
 
-5. Check health:
+6. In another terminal, start Next.js:
 
-   ```text
-   GET http://localhost:5000/api/health
+   ```bash
+   npm run dev:frontend
    ```
 
-## Important domain rules
+The API health endpoint is `GET http://localhost:5000/api/health`.
+
+## Implemented API workflows
+
+- `POST /api/auth/register` creates a mess and its first Manager account.
+- `POST /api/auth/login`, `GET /api/auth/me`, and `POST /api/auth/logout` manage sessions using an HTTP-only JWT cookie.
+- `GET /api/meals/today` returns the caller's own meals for Members or all active Member meals for Managers.
+- `POST /api/meals/requests` submits a Member meal request for breakfast, lunch or dinner.
+- `PATCH /api/meals/requests/:requestId` lets Managers approve or reject requests.
+- `PATCH /api/meals/:userId` lets Managers directly change a Member's meal.
+- `PUT /api/meals/deadline` sets the common request cutoff for all three meals.
+- `GET/POST /api/members`, `PATCH /api/members/:memberId`, and `DELETE /api/members/:memberId` manage members.
+
+All meal dates and request deadlines use Asia/Dhaka. The server, not the browser, enforces the cutoff and role permissions. Members are always scoped to their authenticated user ID and mess ID; Managers are scoped to their own mess.
+
+## Domain rules
 
 - Every business record belongs to a mess through `messId`.
 - Store money as integer paisa; convert to/from BDT at API boundaries.
 - Only approved deposits count toward member balances.
-- Financial entries should be auditable; finalized monthly summaries must be treated as immutable snapshots.
-- Meal lock enforcement and manager overrides must be validated by the API, not only by the UI.
+- Financial entries should be auditable; finalized monthly summaries should be treated as immutable snapshots.
 - Guest meals are attributed to the member who records the guest.
 
-## Development status
+## Development status and limitations
 
-Frontend screens are scaffolded with responsive layouts and demo interactions. Backend foundation is in progress; authentication, API integration, validation, calculation services and automated tests are upcoming.
+Meal requests, daily meal state, the shared deadline, authentication and member management now have API routes and frontend integration. Bazar, deposit, expense and financial-report pages still use representative demo data. No production deployment or live MongoDB verification is implied by this repository change.
