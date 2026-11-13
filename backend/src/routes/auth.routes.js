@@ -50,6 +50,7 @@ router.post("/register", asyncHandler(async (req, res) => {
   if (error) return res.status(400).json({ success: false, message: error.details[0].message });
 
   const mess = await Mess.create({ name: value.messName, timezone: "Asia/Dhaka" });
+  let createdUser = null;
   try {
     const user = await User.create({
       messId: mess._id,
@@ -59,11 +60,13 @@ router.post("/register", asyncHandler(async (req, res) => {
       passwordHash: await bcrypt.hash(value.password, 12),
       role: "Manager",
     });
+    createdUser = user;
     mess.currentManager = user._id;
     await mess.save();
     issueSession(res, user);
     return res.status(201).json({ success: true, user: publicUser(user), mess: { id: mess._id, name: mess.name } });
   } catch (error) {
+    if (createdUser) await User.findByIdAndDelete(createdUser._id);
     await Mess.findByIdAndDelete(mess._id);
     throw error;
   }
