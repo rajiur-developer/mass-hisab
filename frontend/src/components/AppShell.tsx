@@ -27,9 +27,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const isManager = session?.role === "Manager";
   const groups = isManager ? managerGroups : memberGroups;
 
-  async function logout() {
+  function logout() {
     if (session?.authMode === "api") {
-      try { await apiRequest("/api/auth/logout", { method: "POST" }); } catch { /* Clear the local session even if the API is offline. */ }
+      void apiRequest("/api/auth/logout", { method: "POST" }).catch(() => undefined);
     }
     clearDemoSession();
     window.location.replace("/login");
