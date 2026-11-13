@@ -23,6 +23,22 @@ export default function LoginPage() {
     setError("");
     const normalizedEmail = email.trim().toLowerCase();
 
+    // Demo credentials are intentionally checked before the API request.
+    // The supplied demo email is not a complete RFC email address, so this
+    // exact demo-only value is accepted by the text input below.
+    if (normalizedEmail === "rajiurrahman2003@gmail" && password === "123456") {
+      saveDemoSession({ role: "Manager", name: "Demo Moderator", email: normalizedEmail, authMode: "demo" });
+      router.push("/dashboard");
+      setLoading(false);
+      return;
+    }
+    if (normalizedEmail === "rajiurrahman2003@gmail" && password === "654321") {
+      saveDemoSession({ role: "Member", name: "Demo User", email: normalizedEmail, authMode: "demo" });
+      router.push("/dashboard");
+      setLoading(false);
+      return;
+    }
+
     try {
       const result = await apiRequest<LoginResult>("/api/auth/login", {
         method: "POST",
@@ -31,19 +47,7 @@ export default function LoginPage() {
       saveDemoSession({ id: result.user.id, messId: result.user.messId, role: result.user.role, name: result.user.name, email: result.user.email, authMode: "api" });
       router.push("/dashboard");
     } catch (err) {
-      if (err instanceof ApiError && err.status === 0) {
-        if (normalizedEmail === "manager@masshisab.demo" && password === "Manager@123") {
-          saveDemoSession({ role: "Manager", name: "Demo Manager", email: normalizedEmail, authMode: "demo" });
-          router.push("/dashboard");
-        } else if (normalizedEmail === "member@masshisab.demo" && password === "Member@123") {
-          saveDemoSession({ role: "Member", name: "Sakib Khan", email: normalizedEmail, authMode: "demo" });
-          router.push("/dashboard");
-        } else {
-          setError(err.message);
-        }
-      } else {
-        setError(err instanceof Error ? err.message : "Unable to sign in.");
-      }
+      setError(err instanceof Error ? err.message : "Unable to sign in.");
     } finally {
       setLoading(false);
     }
@@ -68,18 +72,18 @@ export default function LoginPage() {
         <div className="auth-form">
           <div className="mb-4"><div className="text-uppercase fw-bold mb-2" style={{ fontSize: 10, letterSpacing: ".14em", color: "#176b52" }}>WELCOME BACK</div><h2>Sign in to your mess</h2><p className="text-secondary">Use your mess account credentials.</p></div>
           <form onSubmit={submit}>
-            <div className="mb-3"><label className="form-label">Email address</label><input required type="email" className="form-control" placeholder="you@example.com" value={email} onChange={e => { setEmail(e.target.value); setError(""); }} /></div>
+            <div className="mb-3"><label className="form-label">Email address</label><input required type="text" inputMode="email" autoComplete="username" className="form-control" placeholder="you@example.com" value={email} onChange={e => { setEmail(e.target.value); setError(""); }} /></div>
             <div className="mb-3"><label className="form-label">Mess ID (optional)</label><input className="form-control" placeholder="Required only if your email is used in multiple messes" value={messId} onChange={e => { setMessId(e.target.value); setError(""); }} /></div>
             <div className="mb-2"><label className="form-label">Password</label><div className="position-relative"><input required type={show ? "text" : "password"} className="form-control pe-5" placeholder="Enter your password" value={password} onChange={e => { setPassword(e.target.value); setError(""); }} /><button type="button" onClick={() => setShow(!show)} className="btn position-absolute top-50 end-0 translate-middle-y text-secondary"><i className={"bi " + (show ? "bi-eye-slash" : "bi-eye")} /></button></div></div>
             {error && <div className="alert alert-danger py-2 small mt-3" role="alert">{error}</div>}
             <button disabled={loading} className="btn-primary-custom w-100 py-3 mt-4" type="submit">{loading ? "Signing in…" : "Sign in"} <i className="bi bi-arrow-right ms-2" /></button>
           </form>
           <div className="card-clean p-3 mt-4">
-            <strong className="d-block mb-2">Offline demo credentials</strong>
-            <div className="small mb-2"><strong>Moderator / Manager</strong><br />manager@masshisab.demo<br />Password: Manager@123</div>
+            <strong className="d-block mb-2">Demo login credentials</strong>
+            <div className="small mb-2"><strong>Moderator</strong><br />rajiurrahman2003@gmail<br />Password: 123456</div>
             <hr className="my-2" />
-            <div className="small"><strong>Member</strong><br />member@masshisab.demo<br />Password: Member@123</div>
-            <div className="small text-secondary mt-2">Demo login works only when the API cannot be reached. It does not access database features.</div>
+            <div className="small"><strong>User</strong><br />rajiurrahman2003@gmail<br />Password: 654321</div>
+            <div className="small text-secondary mt-2">Demo access only. These credentials do not authenticate against the production database.</div>
           </div>
           <div className="text-center mt-4 auth-foot">New to Mass Hisab? <Link href="/register" className="fw-bold" style={{ color: "#176b52" }}>Create an account</Link></div>
         </div>
