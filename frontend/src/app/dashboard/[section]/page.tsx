@@ -10,6 +10,7 @@ type MealRequest = { id: string; member: string; meal: MealName; requested: bool
 const MEAL_KEY = "mass-hisab-meal-demo";
 const MEMBERS_KEY = "mass-hisab-members-demo";
 const DEADLINE_KEY = "mass-hisab-request-deadline";
+const RECORDS_KEY = "mass-hisab-records-demo";
 
 const initialMembers: MemberRecord[] = [
   { id: "m1", name: "Abir Rahman", email: "abir@example.com", phone: "01712-000001", breakfast: true, lunch: true, dinner: true },
@@ -34,6 +35,7 @@ export default function SectionPage() {
   const [session, setSession] = useState<DemoSession | null>(null);
   const [members, setMembers] = useState<MemberRecord[]>(initialMembers);
   const [requests, setRequests] = useState<MealRequest[]>([]);
+  const [recordRows, setRecordRows] = useState<Record<string, string[][]>>({});
   const [deadline, setDeadline] = useState("20:00");
   const [now, setNow] = useState("");
   const [notice, setNotice] = useState("");
@@ -46,9 +48,11 @@ export default function SectionPage() {
     const savedMembers = sessionStorage.getItem(MEMBERS_KEY);
     const savedMeals = sessionStorage.getItem(MEAL_KEY);
     const savedDeadline = sessionStorage.getItem(DEADLINE_KEY);
+    const savedRecords = sessionStorage.getItem(RECORDS_KEY);
     if (savedMembers) setMembers(JSON.parse(savedMembers));
     if (savedMeals) setRequests(JSON.parse(savedMeals));
     if (savedDeadline) setDeadline(savedDeadline);
+    if (savedRecords) setRecordRows(JSON.parse(savedRecords));
     const updateClock = () => setNow(new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Dhaka" }).format(new Date()));
     updateClock();
     const timer = window.setInterval(updateClock, 30000);
@@ -76,6 +80,15 @@ export default function SectionPage() {
   function saveRequests(next: MealRequest[]) {
     setRequests(next);
     sessionStorage.setItem(MEAL_KEY, JSON.stringify(next));
+  }
+  function saveRecordRows(next: Record<string, string[][]>) {
+    setRecordRows(next);
+    sessionStorage.setItem(RECORDS_KEY, JSON.stringify(next));
+  }
+  function editRecordCell(rowIndex: number, cellIndex: number, value: string) {
+    const rows = (recordRows[section] || config.rows).map(row => [...row]);
+    rows[rowIndex][cellIndex] = value;
+    saveRecordRows({ ...recordRows, [section]: rows });
   }
   function saveDeadline(value: string) {
     setDeadline(value);
@@ -134,6 +147,7 @@ export default function SectionPage() {
   if (section === "members") return <><div className="page-heading"><div><h1 className="page-title">Members</h1><p className="page-subtitle">Add, review and remove members from this mess.</p></div></div>{notice && <div className="alert alert-info py-2 small">{notice}</div>}<div className="card-clean section-card mb-4"><h2 className="section-title mb-3">Add a member</h2><form onSubmit={addMember}><div className="row g-2"><div className="col-md-4"><input required className="form-control" placeholder="Full name" value={newName} onChange={e => setNewName(e.target.value)} /></div><div className="col-md-4"><input required type="email" className="form-control" placeholder="Email address" value={newEmail} onChange={e => setNewEmail(e.target.value)} /></div><div className="col-md-3"><input className="form-control" placeholder="Phone (optional)" value={newPhone} onChange={e => setNewPhone(e.target.value)} /></div><div className="col-md-1"><button className="btn-primary-custom w-100" type="submit">Add</button></div></div></form></div><div className="card-clean section-card"><h2 className="section-title mb-3">All members ({members.length})</h2><div className="table-wrap"><table className="table"><thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Meals today</th><th>Action</th></tr></thead><tbody>{members.map(m => <tr key={m.id}><td><input aria-label="Member name" className="form-control form-control-sm" value={m.name} onChange={e => saveMembers(members.map(item => item.id === m.id ? { ...item, name: e.target.value } : item))} /></td><td>{m.email}</td><td><input aria-label="Member phone" className="form-control form-control-sm" value={m.phone} onChange={e => saveMembers(members.map(item => item.id === m.id ? { ...item, phone: e.target.value } : item))} /></td><td>{[m.breakfast, m.lunch, m.dinner].filter(Boolean).length}/3</td><td><button disabled={m.email === "manager@masshisab.demo"} className="btn btn-sm btn-outline-danger" onClick={() => deleteMember(m.id)}>Delete</button></td></tr>)}</tbody></table></div></div></>;
 
   const baseRows = config.rows;
-  const visibleRows = !isManager ? baseRows.filter(row => row[0] === currentMember.name) : baseRows;
-  return <><div className="page-heading"><div><h1 className="page-title">{isManager ? config.title : "My " + config.title.toLowerCase()}</h1><p className="page-subtitle">{isManager ? config.subtitle : "Only your own account information is shown here."}</p></div></div><div className="card-clean section-card"><h2 className="section-title mb-3">{isManager ? "All records" : "My records"}</h2><div className="table-wrap"><table className="table"><thead><tr>{config.columns.map(c => <th key={c}>{c}</th>)}</tr></thead><tbody>{visibleRows.map((row, i) => <tr key={i}>{row.map((cell, j) => <td key={j}>{j === 0 ? <strong>{cell}</strong> : cell}</td>)}</tr>)}</tbody></table>{visibleRows.length === 0 && <div className="empty-state">No records found for your account.</div>}</div></div><p className="small text-secondary mt-3">Demo data only. Changes are kept in this browser session; backend persistence will be added later.</p></>;
+  const allRows = recordRows[section] || baseRows;
+  const visibleRows = !isManager ? allRows.filter(row => row[0] === currentMember.name) : allRows;
+  return <><div className="page-heading"><div><h1 className="page-title">{isManager ? config.title : "My " + config.title.toLowerCase()}</h1><p className="page-subtitle">{isManager ? config.subtitle : "Only your own account information is shown here."}</p></div></div><div className="card-clean section-card"><h2 className="section-title mb-3">{isManager ? "All records" : "My records"}</h2><div className="table-wrap"><table className="table"><thead><tr>{config.columns.map(c => <th key={c}>{c}</th>)}</tr></thead><tbody>{visibleRows.map((row, i) => <tr key={i}>{row.map((cell, j) => <td key={j}>{isManager ? <input aria-label={config.columns[j] + " for row " + (i + 1)} className="form-control form-control-sm" value={cell} onChange={e => editRecordCell(i, j, e.target.value)} /> : j === 0 ? <strong>{cell}</strong> : cell}</td>)}</tr>)}</tbody></table>{visibleRows.length === 0 && <div className="empty-state">No records found for your account.</div>}</div></div><p className="small text-secondary mt-3">Demo data only. Changes are kept in this browser session; backend persistence will be added later.</p></>;
 }
