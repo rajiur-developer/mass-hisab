@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { saveDemoSession } from "@/lib/demo-auth";
-import { apiRequest, ApiError } from "@/lib/api";
+import { apiRequest } from "@/lib/api";
 
 type LoginResult = { user: { id: string; messId: string; name: string; email: string; role: "Manager" | "Member" } };
 
