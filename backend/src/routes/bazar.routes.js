@@ -40,7 +40,7 @@ router.get("/summary", asyncHandler(async (req, res) => {
   const [records, settings, users, meals, preferences] = await Promise.all([
     Bazar.find(filter).populate("boughtBy", "name").sort({ date: 1, createdAt: 1 }).lean(),
     BazarSettings.findOne({ messId: req.user.messId }).lean(),
-    User.find({ messId: req.user.messId, role: "Member", isActive: true }).select("_id name").lean(),
+    User.find({ messId: req.user.messId, isActive: true, _id: { $ne: req.user._id } }).select("_id name").lean(),
     Meal.find({ messId: req.user.messId, date: { $gte: start, $lt: end } }).lean(),
     MealPreference.find({ messId: req.user.messId }).lean(),
   ]);

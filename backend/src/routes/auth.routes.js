@@ -28,6 +28,17 @@ function issueSession(res, user) {
   res.cookie(cookieName, token, cookieOptions);
 }
 
+async function applyEffectiveRole(user) {
+  const { dateKey } = require("../utils/messTime").getLocalParts();
+  const today = require("../utils/messTime").dateFromKey(dateKey);
+  const assignment = await ManagerHistory.findOne({
+    messId: user.messId, startDate: { $lte: today },
+    $or: [{ endDate: null }, { endDate: { $gte: today } }],
+  }).sort({ startDate: -1 }).select("managerId");
+  if (assignment) user.role = assignment.managerId.toString() === user._id.toString() ? "Manager" : "Member";
+  return user;
+}
+
 function publicUser(user) {
   return {
     id: user._id,
@@ -96,7 +107,7 @@ router.post("/login", asyncHandler(async (req, res) => {
     return res.status(401).json({ success: false, message: "Email or password is incorrect" });
   }
 
-  const user = matches[0];
+  const user = await applyEffectiveRole(matches[0]);
   issueSession(res, user);
   return res.json({ success: true, user: publicUser(user), mess: { id: user.messId } });
 }));

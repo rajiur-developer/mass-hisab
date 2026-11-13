@@ -30,6 +30,23 @@ function validDateKey(value) {
     && new Date(value + "T00:00:00.000Z").toISOString().slice(0, 10) === value;
 }
 
+async function saveDateMeal({ messId, userId, date, meal, enabled, updatedBy }) {
+  const filter = { messId, userId, date };
+  const existing = await Meal.findOne(filter).select("_id");
+  const preference = existing ? null : await MealPreference.findOne({ messId, userId }).lean();
+  const defaults = preference
+    ? { breakfast: preference.breakfast, lunch: preference.lunch, dinner: preference.dinner }
+    : { breakfast: false, lunch: false, dinner: false };
+  return Meal.findOneAndUpdate(
+    filter,
+    {
+      $set: { [meal]: enabled, updatedBy },
+      $setOnInsert: { messId, userId, date, ...defaults },
+    },
+    { upsert: true, new: true, runValidators: true }
+  );
+}
+
 async function getMealData(req, dateKey) {
   const date = dateFromKey(dateKey);
   const filter = { messId: req.user.messId, date };
@@ -41,7 +58,7 @@ async function getMealData(req, dateKey) {
     MealRequest.find({ ...filter }).populate("userId", "name email").sort({ createdAt: -1 }).lean(),
   ]);
   const users = req.user.role === "Manager"
-    ? await User.find({ messId: req.user.messId, role: "Member", isActive: true }).select("_id name email phone").lean()
+    ? await User.find({ messId: req.user.messId, isActive: true, _id: { $ne: req.user._id } }).select("_id name email phone").lean()
     : [{ _id: req.user._id, name: req.user.name, email: req.user.email, phone: req.user.phone }];
 
   const recordByUser = new Map(records.map((record) => [record.userId._id.toString(), record]));
@@ -151,11 +168,10 @@ router.patch("/requests/:requestId", requireRole("Manager"), asyncHandler(async 
   const request = await MealRequest.findOne({ _id: req.params.requestId, messId: req.user.messId, status: "Pending" });
   if (!request) return res.status(404).json({ success: false, message: "Pending request not found" });
   if (value.status === "Approved") {
-    await Meal.findOneAndUpdate(
-      { messId: req.user.messId, userId: request.userId, date: request.date },
-      { $set: { [request.meal]: request.enabled, updatedBy: req.user._id }, $setOnInsert: { messId: req.user.messId, userId: request.userId, date: request.date } },
-      { upsert: true, new: true, runValidators: true }
-    );
+    await saveDateMeal({
+      messId: req.user.messId, userId: request.userId, date: request.date,
+      meal: request.meal, enabled: request.enabled, updatedBy: req.user._id,
+    });
   }
   request.status = value.status;
   request.reviewedBy = req.user._id;
@@ -172,11 +188,10 @@ router.patch("/:userId/date/:date", requireRole("Manager"), asyncHandler(async (
   const target = await User.findOne({ _id: req.params.userId, messId: req.user.messId, role: "Member", isActive: true }).select("_id");
   if (!target) return res.status(404).json({ success: false, message: "Member not found" });
   const date = dateFromKey(req.params.date);
-  const record = await Meal.findOneAndUpdate(
-    { messId: req.user.messId, userId: target._id, date },
-    { $set: { [value.meal]: value.enabled, updatedBy: req.user._id }, $setOnInsert: { messId: req.user.messId, userId: target._id, date } },
-    { upsert: true, new: true, runValidators: true }
-  );
+  const record = await saveDateMeal({
+    messId: req.user.messId, userId: target._id, date,
+    meal: value.meal, enabled: value.enabled, updatedBy: req.user._id,
+  });
   res.json({ success: true, meal: record });
 }));
 
