@@ -5,6 +5,8 @@ import { useParams } from "next/navigation";
 import { readDemoSession, type DemoSession } from "@/lib/demo-auth";
 import MealControl from "@/components/MealControl";
 import MembersControl from "@/components/MembersControl";
+import BazarControl from "@/components/BazarControl";
+import ManagerRotationControl from "@/components/ManagerRotationControl";
 
 type MealName = "Breakfast" | "Lunch" | "Dinner";
 type MemberRecord = { id: string; name: string; email: string; phone: string; breakfast: boolean; lunch: boolean; dinner: boolean };
@@ -63,6 +65,8 @@ export default function SectionPage() {
 
   if (section === "meals") return <MealControl />;
   if (section === "members") return <MembersControl />;
+  if (section === "bazar") return <BazarControl />;
+  if (section === "manager") return <ManagerRotationControl />;
 
   const isManager = session?.role === "Manager";
   const currentMember = members.find(m => m.email === session?.email) || members[1];
