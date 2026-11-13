@@ -58,7 +58,7 @@ async function getMealData(req, dateKey) {
     MealRequest.find({ ...filter }).populate("userId", "name email").sort({ createdAt: -1 }).lean(),
   ]);
   const users = req.user.role === "Manager"
-    ? await User.find({ messId: req.user.messId, isActive: true, _id: { $ne: req.user._id } }).select("_id name email phone").lean()
+    ? await User.find({ messId: req.user.messId, isActive: true }).select("_id name email phone").lean()
     : [{ _id: req.user._id, name: req.user.name, email: req.user.email, phone: req.user.phone }];
 
   const recordByUser = new Map(records.map((record) => [record.userId._id.toString(), record]));
@@ -101,7 +101,7 @@ router.get("/summary/:month", asyncHandler(async (req, res) => {
   const startDate = dateFromKey(req.params.month + "-01");
   const endDate = dateFromKey(req.params.month + "-" + String(daysInMonth).padStart(2, "0"));
   const userFilter = req.user.role === "Manager"
-    ? { messId: req.user.messId, isActive: true, _id: { $ne: req.user._id } }
+    ? { messId: req.user.messId, isActive: true }
     : { _id: req.user._id, messId: req.user.messId, isActive: true };
   const users = await User.find(userFilter).select("_id name email").sort({ name: 1 }).lean();
   const userIds = users.map((user) => user._id);
