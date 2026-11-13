@@ -58,6 +58,11 @@ export default function SectionPage() {
   const isManager = session?.role === "Manager";
   const currentMember = members.find(m => m.email === session?.email) || members[1];
   const isBeforeDeadline = !now || now < deadline;
+  if (!session) return <div className="card-clean section-card">Loading your account…</div>;
+  if (session.role === "Member" && !["meals", "deposits", "reports"].includes(section)) {
+    return <div className="card-clean section-card"><h1 className="section-title">Access restricted</h1><p className="section-subtitle mb-0">Members can access only their own overview, meal requests, deposits and monthly report. Ask the moderator if you need another section.</p></div>;
+  }
+
   const meals: { key: "breakfast" | "lunch" | "dinner"; label: MealName; icon: string }[] = [
     { key: "breakfast", label: "Breakfast", icon: "bi-sunrise" },
     { key: "lunch", label: "Lunch", icon: "bi-sun" },
