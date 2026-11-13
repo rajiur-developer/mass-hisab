@@ -1,4 +1,5 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL
+  ?? (process.env.NODE_ENV === "development" ? "http://localhost:5000" : "");
 
 export class ApiError extends Error {
   status: number;
@@ -21,7 +22,7 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
       },
     });
   } catch {
-    throw new ApiError("Cannot reach the Mass Hisab API. Start the backend and check NEXT_PUBLIC_API_URL.", 0);
+    throw new ApiError("Cannot reach the Mass Hisab API. Check your API configuration.", 0);
   }
 
   const payload = await response.json().catch(() => ({}));

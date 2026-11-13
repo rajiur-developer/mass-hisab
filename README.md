@@ -44,6 +44,26 @@ Bachelor Mess Management System built with Next.js, Express.js, MongoDB and Boot
 
 The API health endpoint is `GET http://localhost:5000/api/health`.
 
+## Deploy on Vercel (Services)
+
+The root `vercel.json` defines two services in this repository:
+
+- `backend` — Express app rooted at `backend/`, entrypoint `src/app.js`; publicly routed only for `/api/*`.
+- `frontend` — Next.js app rooted at `frontend/`; handles all remaining public paths.
+
+The frontend calls relative `/api/*` URLs in production, so requests use the same deployment domain and are routed to Express. No service binding is configured: the current frontend API calls are browser-to-public-API requests through the top-level rewrite, not private server-to-server calls. If a future Next.js server-side function needs to call the backend privately, add a binding to the frontend service and use its injected URL at runtime.
+
+In Vercel, import the repository with the **repository root** as the project root, set the project Framework Preset to **Services**, and configure these Environment Variables for the backend service (or project-wide if the dashboard only offers shared scope):
+
+- `MONGO_URI` — your hosted MongoDB connection string.
+- `JWT_ACCESS_SECRET` — a strong, unique secret.
+- `JWT_ACCESS_EXPIRES_IN` — optional; defaults to `15m`.
+- `NODE_ENV=production`.
+
+Do not set `NEXT_PUBLIC_API_URL` for this single-domain deployment; the frontend uses relative `/api` requests. No Vercel deployment or live database connection is performed by a Git commit. Vercel Services availability and project setup are controlled in the Vercel dashboard.
+
+For local development, keep `NEXT_PUBLIC_API_URL=http://localhost:5000` in `frontend/.env.local`.
+
 ## Implemented API workflows
 
 - `POST /api/auth/register` creates a mess and its first Manager account.
