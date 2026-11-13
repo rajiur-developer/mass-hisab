@@ -15,9 +15,9 @@ const configs:Record<string,Config>={
 };
 export default function SectionPage(){
  const params=useParams<{section:string}>();const section=params.section;const config=useMemo(()=>configs[section]||configs.meals,[section]);
- const[show,setShow]=useState(false);const[notice,setNotice]=useState("");const[search,setSearch]=useState("");const[form,setForm]=useState<Record<string,string>>({});
- const rows=config.rows.filter(r=>r.cells.join(" ").toLowerCase().includes(search.toLowerCase()));
- function submit(e:React.FormEvent){e.preventDefault();setShow(false);setNotice("Saved in this demo session. API integration will persist this record later.");setForm({});}
+ const[show,setShow]=useState(false);const[notice,setNotice]=useState("");const[search,setSearch]=useState("");const[form,setForm]=useState<Record<string,string>>({});const[extraRows,setExtraRows]=useState<Row[]>([]);
+ const rows=[...config.rows,...extraRows].filter(r=>r.cells.join(" ").toLowerCase().includes(search.toLowerCase()));
+ function submit(e:React.FormEvent){e.preventDefault();const cells=config.fields.map(field=>form[field]||"—");setExtraRows([...extraRows,{cells,status:section==="deposits"?"Pending":undefined}]);setShow(false);setNotice("Added to this demo session. API integration will persist this record later.");setForm({});}
  return <><div className="page-heading"><div><h1 className="page-title">{config.title}</h1><p className="page-subtitle">{config.subtitle}</p></div><button className="btn-primary-custom" onClick={()=>section==="reports"?setNotice("Report export will be enabled with the reporting API."):setShow(true)}><i className={"bi "+(section==="reports"?"bi-download":"bi-plus-lg")+" me-2"}/>{config.action}</button></div>
  {notice&&<div className="alert alert-success border-0 rounded-3 py-2 small" role="status">{notice}<button className="btn-close float-end" onClick={()=>setNotice("")}/></div>}
  <div className="row g-3 mb-4">{config.stats.map((s,i)=><div className="col-12 col-md-4" key={s[0]}><div className="card-clean stat-card"><div className="stat-top">{s[0]}<span className="stat-icon"><i className={["bi bi-activity","bi bi-wallet2","bi bi-calendar-check"][i]}/></span></div><div className="stat-value">{s[1]}</div><div className="stat-note">{s[2]}</div></div></div>)}</div>
