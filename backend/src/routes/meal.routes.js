@@ -30,13 +30,42 @@ function validDateKey(value) {
     && new Date(value + "T00:00:00.000Z").toISOString().slice(0, 10) === value;
 }
 
+
+function preferenceForDate(preference, date) {
+  if (!preference) return { breakfast: false, lunch: false, dinner: false };
+  const history = preference.history || [];
+  const effective = history.filter((item) => new Date(item.effectiveFrom) <= date).pop();
+  if (effective) return effective;
+  if (history.length === 0 && preference.updatedAt && new Date(preference.updatedAt) <= date) return preference;
+  return { breakfast: false, lunch: false, dinner: false };
+}
+
+async function updateRecurringPreference({ messId, userId, updatedBy, changes }) {
+  const filter = { messId, userId };
+  const current = await MealPreference.findOne(filter).lean();
+  const next = {
+    breakfast: current ? current.breakfast : false,
+    lunch: current ? current.lunch : false,
+    dinner: current ? current.dinner : false,
+    ...changes,
+  };
+  const effectiveFrom = dateFromKey(getLocalParts().dateKey);
+  return MealPreference.findOneAndUpdate(
+    filter,
+    {
+      $set: { ...next, updatedBy },
+      $push: { history: { ...next, effectiveFrom, updatedBy } },
+      $setOnInsert: { messId, userId },
+    },
+    { upsert: true, new: true, runValidators: true }
+  );
+}
+
 async function saveDateMeal({ messId, userId, date, meal, enabled, updatedBy }) {
   const filter = { messId, userId, date };
   const existing = await Meal.findOne(filter).select("_id");
   const preference = existing ? null : await MealPreference.findOne({ messId, userId }).lean();
-  const defaults = preference
-    ? { breakfast: preference.breakfast, lunch: preference.lunch, dinner: preference.dinner }
-    : { breakfast: false, lunch: false, dinner: false };
+  const defaults = preferenceForDate(preference, date);
   return Meal.findOneAndUpdate(
     filter,
     {
@@ -65,12 +94,12 @@ async function getMealData(req, dateKey) {
   const preferenceByUser = new Map(preferences.map((item) => [item.userId.toString(), item]));
   const memberMeals = users.map((user) => {
     const record = recordByUser.get(user._id.toString());
-    const preference = preferenceByUser.get(user._id.toString());
+    const preference = preferenceForDate(preferenceByUser.get(user._id.toString()), date);
     return {
       user: { id: user._id, name: user.name, email: user.email, phone: user.phone },
-      breakfast: record ? record.breakfast : Boolean(preference && preference.breakfast),
-      lunch: record ? record.lunch : Boolean(preference && preference.lunch),
-      dinner: record ? record.dinner : Boolean(preference && preference.dinner),
+      breakfast: record ? record.breakfast : Boolean(preference.breakfast),
+      lunch: record ? record.lunch : Boolean(preference.lunch),
+      dinner: record ? record.dinner : Boolean(preference.dinner),
       hasDateOverride: Boolean(record),
     };
   });
@@ -117,10 +146,10 @@ router.get("/summary/:month", asyncHandler(async (req, res) => {
     const members = users.map((user) => {
       const key = user._id.toString();
       const record = recordByKey.get(dateKey + ":" + key);
-      const preference = preferenceByUser.get(key);
-      const breakfast = record ? record.breakfast : Boolean(preference && preference.breakfast);
-      const lunch = record ? record.lunch : Boolean(preference && preference.lunch);
-      const dinner = record ? record.dinner : Boolean(preference && preference.dinner);
+      const preference = preferenceForDate(preferenceByUser.get(key), dateFromKey(dateKey));
+      const breakfast = record ? record.breakfast : Boolean(preference.breakfast);
+      const lunch = record ? record.lunch : Boolean(preference.lunch);
+      const dinner = record ? record.dinner : Boolean(preference.dinner);
       return { user: { id: user._id, name: user.name, email: user.email }, breakfast, lunch, dinner, total: Number(breakfast) + Number(lunch) + Number(dinner) };
     });
     days.push({
@@ -166,11 +195,9 @@ router.get("/preferences", asyncHandler(async (req, res) => {
 router.put("/preferences", asyncHandler(async (req, res) => {
   const { error, value } = preferencesSchema.validate(req.body);
   if (error) return res.status(400).json({ success: false, message: error.details[0].message });
-  const preference = await MealPreference.findOneAndUpdate(
-    { messId: req.user.messId, userId: req.user._id },
-    { $set: { ...value, updatedBy: req.user._id }, $setOnInsert: { messId: req.user.messId, userId: req.user._id } },
-    { upsert: true, new: true, runValidators: true }
-  );
+  const preference = await updateRecurringPreference({
+    messId: req.user.messId, userId: req.user._id, updatedBy: req.user._id, changes: value,
+  });
   res.json({ success: true, preferences: {
     breakfast: preference.breakfast, lunch: preference.lunch, dinner: preference.dinner,
   } });
@@ -181,11 +208,9 @@ router.patch("/preferences/:userId", requireRole("Manager"), asyncHandler(async 
   if (error) return res.status(400).json({ success: false, message: error.details[0].message });
   const target = await User.findOne({ _id: req.params.userId, messId: req.user.messId, isActive: true }).select("_id");
   if (!target) return res.status(404).json({ success: false, message: "Member not found" });
-  const preference = await MealPreference.findOneAndUpdate(
-    { messId: req.user.messId, userId: target._id },
-    { $set: { ...value, updatedBy: req.user._id }, $setOnInsert: { messId: req.user.messId, userId: target._id } },
-    { upsert: true, new: true, runValidators: true }
-  );
+  const preference = await updateRecurringPreference({
+    messId: req.user.messId, userId: target._id, updatedBy: req.user._id, changes: value,
+  });
   res.json({ success: true, preferences: {
     breakfast: preference.breakfast, lunch: preference.lunch, dinner: preference.dinner,
   } });
