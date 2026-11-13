@@ -6,7 +6,7 @@ import { readDemoSession } from "@/lib/demo-auth";
 
 type Member = { _id: string; name: string };
 type RecordItem = { id: string; description: string; amountPaisa: number; boughtBy: { id: string; name: string } | null; receiptUrl?: string | null };
-type Daily = { date: string; totalPaisa: number; totalMeals: number; shares: { userId: string; name: string; meals: number; sharePaisa: number }[]; records: RecordItem[] };
+type Daily = { date: string; totalPaisa: number; totalMeals: number; mySharePaisa?: number; myMeals?: number; shares: { userId: string; name: string; meals: number; sharePaisa: number }[]; records: RecordItem[] };
 type Summary = { month: string; totalPaisa: number; weeklyBudgetPaisa?: number; weeklyBudgetMode?: "Actual" | "Fixed"; weekly?: { weekStart: string; totalPaisa: number; budgetPaisa: number }[]; daily: Daily[]; memberShares?: { name: string; meals: number; sharePaisa: number }[]; monthlyMySharePaisa?: number };
 const money = (paisa: number) => "৳ " + (paisa / 100).toLocaleString("en-BD", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const monthNow = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Dhaka", year: "numeric", month: "2-digit" }).format(new Date());
