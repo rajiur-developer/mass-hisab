@@ -68,3 +68,5 @@ All meal dates and request deadlines use Asia/Dhaka. The server, not the browser
 ## Development status and limitations
 
 Meal requests, daily meal state, the shared deadline, authentication and member management now have API routes and frontend integration. Bazar, deposit, expense and financial-report pages still use representative demo data. No production deployment or live MongoDB verification is implied by this repository change.
+
+GitHub Actions verifies backend syntax/unit tests and frontend TypeScript/build on updates to `feature/backend-foundation`.
